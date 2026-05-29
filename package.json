@@ -1,12 +1,11 @@
 {
   "name": "stocks_app",
   "version": "1.0.0",
-  "description": "",
   "main": "index.js",
   "scripts": {
     "start": "node backend/dist/index.js",
     "server": "tsx watch backend/src/index.ts",
-    "client": "npm.cmd run dev --prefix frontend",
+    "client": "npm run dev --prefix frontend",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "build": "tsc -p backend/tsconfig.json && npm run build --prefix frontend",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -14,7 +13,6 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module",
   "dependencies": {
     "@libsql/client": "^0.17.3",
     "cors": "^2.8.6",
