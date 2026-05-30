@@ -82,7 +82,8 @@ const App: React.FC = () => {
     try {
       setLoading(true);
       const response = await axios.get('/api/stocks');
-      setStocks(response.data);
+      const nextStocks = Array.isArray(response.data) ? response.data : [];
+      setStocks(nextStocks);
     } catch (error) {
       console.error('Error fetching stocks:', error);
     } finally {
@@ -94,7 +95,8 @@ const App: React.FC = () => {
     fetchStocks();
   }, []);
 
-  const lowStockCount = stocks.filter(item => item.quantity <= item.low_stock_threshold).length;
+  const safeStocks = Array.isArray(stocks) ? stocks : [];
+  const lowStockCount = safeStocks.filter(item => item.quantity <= item.low_stock_threshold).length;
 
   const NavItem = ({ id, label, icon: Icon }: { id: typeof activeTab, label: string, icon: any }) => (
     <button
@@ -208,7 +210,7 @@ const App: React.FC = () => {
                     <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
                   </button>
                 </div>
-                <StockList stocks={stocks} onUpdate={fetchStocks} />
+                    <StockList stocks={safeStocks} onUpdate={fetchStocks} />
               </div>
             </div>
           )}

@@ -20,7 +20,8 @@ const ClientManager: React.FC = () => {
     try {
       setLoading(true);
       const res = await axios.get('/api/stocks/clients');
-      setClients(res.data);
+      const nextClients = Array.isArray(res.data) ? res.data : [];
+      setClients(nextClients);
     } catch (err) {
       console.error(err);
     } finally {
@@ -96,7 +97,7 @@ const ClientManager: React.FC = () => {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {clients.map(c => (
+        {(Array.isArray(clients) ? clients : []).map(c => (
           <div key={c.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow relative group">
             <button 
               onClick={() => handleDelete(c.id, c.name)}
@@ -114,7 +115,7 @@ const ClientManager: React.FC = () => {
         ))}
       </div>
 
-      {clients.length === 0 && !loading && (
+      {(Array.isArray(clients) ? clients : []).length === 0 && !loading && (
         <div className="text-center py-12 text-gray-400 bg-gray-50 rounded-xl border-2 border-dashed">
           {t('no_clients')}
         </div>

@@ -23,7 +23,11 @@ const AnalyticsDashboard: React.FC = () => {
           axios.get('/api/stocks/clients'),
           axios.get('/api/stocks/producers')
         ]);
-        setData({ stocks: s.data, orders: o.data, clients: c.data, producers: p.data });
+        const nextStocks = Array.isArray(s.data) ? s.data : [];
+        const nextOrders = Array.isArray(o.data) ? o.data : [];
+        const nextClients = Array.isArray(c.data) ? c.data : [];
+        const nextProducers = Array.isArray(p.data) ? p.data : [];
+        setData({ stocks: nextStocks, orders: nextOrders, clients: nextClients, producers: nextProducers });
       } catch (err) {
         console.error(err);
       } finally {
@@ -33,9 +37,14 @@ const AnalyticsDashboard: React.FC = () => {
     fetchAll();
   }, []);
 
-  const totalInventoryValue = data.stocks.reduce((acc, s) => acc + (s.quantity * s.retail_price), 0);
-  const totalPotentialRevenue = data.stocks.reduce((acc, s) => acc + (s.quantity * s.price_per_unit), 0);
-  const totalSalesRevenue = data.orders.reduce((acc, o) => acc + o.bill_price, 0);
+  const safeStocks = Array.isArray(data.stocks) ? data.stocks : [];
+  const safeOrders = Array.isArray(data.orders) ? data.orders : [];
+  const safeClients = Array.isArray(data.clients) ? data.clients : [];
+  const safeProducers = Array.isArray(data.producers) ? data.producers : [];
+
+  const totalInventoryValue = safeStocks.reduce((acc, s) => acc + (s.quantity * s.retail_price), 0);
+  const totalPotentialRevenue = safeStocks.reduce((acc, s) => acc + (s.quantity * s.price_per_unit), 0);
+  const totalSalesRevenue = safeOrders.reduce((acc, o) => acc + o.bill_price, 0);
   const totalPotentialProfit = totalPotentialRevenue - totalInventoryValue;
 
   const formatCurrency = (value: number) => {
@@ -65,12 +74,12 @@ const AnalyticsDashboard: React.FC = () => {
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-2">
           <div className="bg-yellow-100 text-brand-yellow p-2 rounded-lg w-fit"><Package size={20} /></div>
           <p className="text-sm text-gray-500 font-bold uppercase tracking-wider">{t('stock_assets')}</p>
-          <p className="text-2xl font-black text-gray-900">{data.stocks.length} {t('total_items')}</p>
+          <p className="text-2xl font-black text-gray-900">{safeStocks.length} {t('total_items')}</p>
         </div>
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-2">
           <div className="bg-purple-100 text-purple-600 p-2 rounded-lg w-fit"><User size={20} /></div>
           <p className="text-sm text-gray-500 font-bold uppercase tracking-wider">{t('active_clients')}</p>
-          <p className="text-2xl font-black text-gray-900">{data.clients.length}</p>
+          <p className="text-2xl font-black text-gray-900">{safeClients.length}</p>
         </div>
       </div>
 
@@ -81,10 +90,10 @@ const AnalyticsDashboard: React.FC = () => {
             <PieChart size={20} className="text-brand-blue" /> {t('inventory_distribution')}
           </h3>
           <div className="space-y-4">
-            {data.producers.map(p => {
-              const producerStocks = data.stocks.filter(s => s.producer_id === p.id);
+            {safeProducers.map(p => {
+              const producerStocks = safeStocks.filter(s => s.producer_id === p.id);
               const count = producerStocks.length;
-              const percentage = (count / data.stocks.length) * 100 || 0;
+              const percentage = (count / safeStocks.length) * 100 || 0;
               return (
                 <div key={p.id} className="space-y-1">
                   <div className="flex justify-between text-sm">
@@ -106,10 +115,13 @@ const AnalyticsDashboard: React.FC = () => {
             <TrendingUp size={20} className="text-green-600" /> {t('sales_by_client')}
           </h3>
           <div className="space-y-4">
-            {data.clients.map(c => {
-              const clientOrders = data.orders.filter(o => o.client_id === c.id);
+            {safeClients.map(c => {
+              const clientOrders = safeOrders.filter(o => o.client_id === c.id);
               const total = clientOrders.reduce((acc, o) => acc + o.bill_price, 0);
-              const maxTotal = Math.max(...data.clients.map(cl => data.orders.filter(o => o.client_id === cl.id).reduce((acc, o) => acc + o.bill_price, 0)), 1);
+              const maxTotal = Math.max(
+                ...safeClients.map(cl => safeOrders.filter(o => o.client_id === cl.id).reduce((acc, o) => acc + o.bill_price, 0)),
+                1,
+              );
               const barWidth = (total / maxTotal) * 100;
               return (
                 <div key={c.id} className="space-y-1">

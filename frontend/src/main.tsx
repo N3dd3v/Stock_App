@@ -5,10 +5,8 @@ import './index.css'
 import { LanguageProvider } from './LanguageContext'
 import axios from 'axios'
 
-const apiUrl = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '')
-if (apiUrl) {
-  axios.defaults.baseURL = apiUrl
-}
+const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/$/, '')
+axios.defaults.baseURL = apiBase
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

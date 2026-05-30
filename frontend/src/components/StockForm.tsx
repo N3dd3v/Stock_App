@@ -38,7 +38,8 @@ const StockForm: React.FC<StockFormProps> = ({ onStockAdded }) => {
     const fetchProducers = async () => {
       try {
         const res = await axios.get('/api/stocks/producers');
-        setProducers(res.data);
+        const nextProducers = Array.isArray(res.data) ? res.data : [];
+        setProducers(nextProducers);
       } catch (err) {
         console.error('Error fetching producers:', err);
       }
@@ -164,7 +165,7 @@ const StockForm: React.FC<StockFormProps> = ({ onStockAdded }) => {
               onChange={(e) => setProducerId(e.target.value === '' ? '' : Number(e.target.value))}
             >
               <option value="">{t('select_producer')}</option>
-              {producers.map(p => (
+              {(Array.isArray(producers) ? producers : []).map(p => (
                 <option key={p.id} value={p.id}>{p.name} ({p.region})</option>
               ))}
             </select>

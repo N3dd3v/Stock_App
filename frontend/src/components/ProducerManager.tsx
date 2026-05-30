@@ -21,7 +21,8 @@ const ProducerManager: React.FC = () => {
     try {
       setLoading(true);
       const res = await axios.get('/api/stocks/producers');
-      setProducers(res.data);
+      const nextProducers = Array.isArray(res.data) ? res.data : [];
+      setProducers(nextProducers);
     } catch (err) {
       console.error(err);
     } finally {
@@ -101,7 +102,7 @@ const ProducerManager: React.FC = () => {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {producers.map(p => (
+        {(Array.isArray(producers) ? producers : []).map(p => (
           <div key={p.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow relative group">
             <button 
               onClick={() => handleDelete(p.id, p.name)}
@@ -120,7 +121,7 @@ const ProducerManager: React.FC = () => {
         ))}
       </div>
 
-      {producers.length === 0 && !loading && (
+      {(Array.isArray(producers) ? producers : []).length === 0 && !loading && (
         <div className="text-center py-12 text-gray-400 bg-gray-50 rounded-xl border-2 border-dashed">
           {t('no_producers')}
         </div>

@@ -29,9 +29,12 @@ const OrderManager: React.FC = () => {
         axios.get('/api/stocks/clients'),
         axios.get('/api/stocks')
       ]);
-      setOrders(ordersRes.data);
-      setClients(clientsRes.data);
-      setStocks(stocksRes.data);
+      const nextOrders = Array.isArray(ordersRes.data) ? ordersRes.data : [];
+      const nextClients = Array.isArray(clientsRes.data) ? clientsRes.data : [];
+      const nextStocks = Array.isArray(stocksRes.data) ? stocksRes.data : [];
+      setOrders(nextOrders);
+      setClients(nextClients);
+      setStocks(nextStocks);
     } catch (err) {
       console.error(err);
     } finally {
@@ -52,7 +55,7 @@ const OrderManager: React.FC = () => {
   const updateItem = (index: number, field: string, value: any) => {
     const newItems = [...selectedItems];
     if (field === 'stock_id') {
-      const stock = stocks.find(s => s.id === Number(value));
+      const stock = (Array.isArray(stocks) ? stocks : []).find(s => s.id === Number(value));
       newItems[index] = { ...newItems[index], stock_id: Number(value), unit_price: stock?.price_per_unit || 0 };
     } else {
       newItems[index] = { ...newItems[index], [field]: Number(value) };
@@ -118,7 +121,7 @@ const OrderManager: React.FC = () => {
               <label className="text-sm font-bold text-gray-700">{t('client')}</label>
               <select required className="w-full p-2 border rounded" value={clientId} onChange={e => setClientId(Number(e.target.value))}>
                 <option value="">{t('select_client')}</option>
-                {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {(Array.isArray(clients) ? clients : []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div className="space-y-1">
@@ -159,7 +162,7 @@ const OrderManager: React.FC = () => {
                     onChange={e => updateItem(index, 'stock_id', e.target.value)}
                   >
                     <option value="0">{t('select_product')}</option>
-                    {stocks.map(s => <option key={s.id} value={s.id}>{s.name} ({formatCurrency(s.price_per_unit)})</option>)}
+                    {(Array.isArray(stocks) ? stocks : []).map(s => <option key={s.id} value={s.id}>{s.name} ({formatCurrency(s.price_per_unit)})</option>)}
                   </select>
                 </div>
                 <div className="space-y-1">
@@ -203,7 +206,7 @@ const OrderManager: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {orders.map(order => (
+            {(Array.isArray(orders) ? orders : []).map(order => (
               <tr key={order.id} className="hover:bg-blue-50 transition-colors">
                 <td className="px-6 py-4 font-mono text-sm text-gray-500">#{order.id.toString().padStart(5, '0')}</td>
                 <td className="px-6 py-4 font-bold text-gray-900">{order.client_name}</td>
@@ -235,7 +238,7 @@ const OrderManager: React.FC = () => {
             ))}
           </tbody>
         </table>
-        {orders.length === 0 && !loading && (
+        {(Array.isArray(orders) ? orders : []).length === 0 && !loading && (
           <div className="p-12 text-center text-gray-400">{t('no_orders')}</div>
         )}
       </div>
