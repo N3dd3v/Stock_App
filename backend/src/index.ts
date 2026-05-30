@@ -23,7 +23,18 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors()); // Enable Cross-Origin Resource Sharing
+const allowedOrigins = ['https://stockappdemo.netlify.app', 'http://localhost:5173'];
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error('Not allowed by CORS'));
+    },
+  }),
+);
 app.use(express.json()); // Parse JSON request bodies
 
 // Mount Routes
