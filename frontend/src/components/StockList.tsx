@@ -14,18 +14,28 @@ import axios from 'axios';
 import { Edit2, Save, X, AlertCircle, Trash2 } from 'lucide-react';
 import { StockItem } from '../App';
 import { useLanguage } from '../LanguageContext';
+import { useAuth } from '../AuthContext';
 
 interface StockListProps {
   stocks: StockItem[];
   onUpdate: () => void;
 }
 
+const PLACEHOLDER_IMAGE = 'data:image/svg+xml;charset=UTF-8,'.concat(
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="%239CA3AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="48" height="48" rx="4" fill="%23F3F4F6" stroke="%23E5E7EB"/><path d="M16 24h32M16 32h32M16 40h20"/></svg>'
+  )
+);
+
 const StockList: React.FC<StockListProps> = ({ stocks, onUpdate }) => {
   const { t } = useLanguage();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editValue, setEditValue] = useState<number>(0);
 
-  const formatCurrency = (value: number) => {
+  const formatCurrency = (value?: number) => {
+    if (value === undefined) return '';
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -44,7 +54,7 @@ const StockList: React.FC<StockListProps> = ({ stocks, onUpdate }) => {
   };
 
   const handleDeleteItem = async (id: number, name: string) => {
-    if (window.confirm(`${t('confirm_delete')} "${name}"`)) {
+    if (window.confirm(`${t('confirmDelete')} "${name}"`)) {
       try {
         await axios.delete(`/api/stocks/${id}`);
         onUpdate();
@@ -63,7 +73,7 @@ const StockList: React.FC<StockListProps> = ({ stocks, onUpdate }) => {
   if (stocks.length === 0) {
     return (
       <div className="p-12 text-center text-gray-500">
-        <p className="text-lg">{t('no_items')}</p>
+        <p className="text-lg">{t('noItems')}</p>
       </div>
     );
   }
@@ -73,35 +83,56 @@ const StockList: React.FC<StockListProps> = ({ stocks, onUpdate }) => {
       <table className="w-full text-left">
         <thead className="bg-gray-50 text-brand-blue uppercase text-xs font-bold tracking-wider">
           <tr>
-            <th className="px-6 py-4">{t('item_details')}</th>
+            <th className="px-6 py-4">{t('itemDetails')}</th>
             <th className="px-6 py-4">{t('status')}</th>
             <th className="px-6 py-4 text-center">{t('quantity')}</th>
-            <th className="px-6 py-4 text-center">{t('unit_price')}</th>
-            <th className="px-6 py-4 text-center">{t('total_price')}</th>
+            {isAdmin && (
+              <>
+                <th className="px-6 py-4 text-center">{t('unitPrice')}</th>
+                <th className="px-6 py-4 text-center">{t('totalPrice')}</th>
+              </>
+            )}
             <th className="px-6 py-4 text-right">{t('actions')}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
           {stocks.map((item) => {
-            const isLow = item.quantity <= item.low_stock_threshold;
+            const isLow = item.quantity <= item.lowStockThreshold;
             const isEditing = editingId === item.id;
-            const totalPrice = item.quantity * item.retail_price;
+            const totalPrice = item.retailPrice !== undefined ? item.quantity * item.retailPrice : undefined;
 
             return (
               <tr key={item.id} className={`group relative hover:bg-blue-50 transition-colors ${isLow ? 'bg-yellow-50/50' : ''}`}>
                 <td className="px-6 py-4">
-                  <div className="flex flex-col">
-                    <span className="font-bold text-gray-900 cursor-help underline decoration-dotted decoration-gray-300 underline-offset-4">{item.name}</span>
-                    <span className="text-xs text-gray-500 font-mono">{t('designation_code')}: {item.designation_code || 'N/A'}</span>
-                    <span className="text-xs text-gray-500 font-mono">{t('ref_number')}: {item.ref_number || 'N/A'}</span>
-                    <span className="text-xs text-blue-600 font-semibold mt-1">{t('from')}: {item.producer_name || t('no_producer')} ({item.producer_region || 'N/A'})</span>
+                  <div className="flex items-start gap-4">
+                    <div
+                      className="w-16 h-16 rounded-xl border border-gray-200 overflow-hidden cursor-pointer"
+                      onClick={() => {
+                        if (item.imageUrl) {
+                          window.open(item.imageUrl, '_blank');
+                        }
+                      }}
+                    >
+                      <img
+                        src={item.imageUrl || PLACEHOLDER_IMAGE}
+                        alt={item.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="font-bold text-gray-900 cursor-help underline decoration-dotted decoration-gray-300 underline-offset-4">{item.name}</span>
+                      <span className="text-xs text-gray-500 font-mono">{t('designationCode')}: {item.designationCode || 'N/A'}</span>
+                      <span className="text-xs text-gray-500 font-mono">{t('refNumber')}: {item.refNumber || 'N/A'}</span>
+                      <span className="text-xs text-gray-500 font-mono">{t('category')}: {item.category || 'Uncategorized'}</span>
+                      <span className="text-xs text-blue-600 font-semibold mt-1">{t('from')}: {item.producerName || t('noProducer')} ({item.producerRegion || 'N/A'})</span>
+                    </div>
                   </div>
                   
                   {/* Tooltip */}
                   {item.description && (
                     <div className="absolute left-1/4 top-0 -translate-y-full opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 mb-2">
                       <div className="bg-brand-blue text-white text-xs rounded-lg p-3 shadow-xl max-w-xs border border-blue-400">
-                        <p className="font-bold border-b border-blue-400 mb-1 pb-1">{t('product_description')}</p>
+                        <p className="font-bold border-b border-blue-400 mb-1 pb-1">{t('productDescription')}</p>
                         {item.description}
                         <div className="absolute bottom-0 left-4 translate-y-full w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-brand-blue"></div>
                       </div>
@@ -111,7 +142,7 @@ const StockList: React.FC<StockListProps> = ({ stocks, onUpdate }) => {
                 <td className="px-6 py-4">
                   {isLow ? (
                     <span className="inline-flex items-center gap-1.5 py-1 px-3 rounded-full text-xs font-bold bg-brand-yellow text-brand-blue border border-yellow-400">
-                      <AlertCircle size={14} /> {t('low_stock_alert')}
+                      <AlertCircle size={14} /> {t('lowStockAlert')}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 py-1 px-3 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200">
@@ -134,22 +165,28 @@ const StockList: React.FC<StockListProps> = ({ stocks, onUpdate }) => {
                       <span className={`text-lg font-bold ${isLow ? 'text-red-600' : 'text-gray-700'}`}>
                         {item.quantity}
                       </span>
-                      <span className="text-[10px] text-gray-400 uppercase tracking-tighter">{t('alert_threshold')}: {item.low_stock_threshold}</span>
+                      <span className="text-[10px] text-gray-400 uppercase tracking-tighter">{t('alertThreshold')}: {item.lowStockThreshold}</span>
                     </div>
                   )}
                 </td>
-                <td className="px-6 py-4 text-center">
-                  <div className="flex flex-col items-center text-xs">
-                    <span className="text-blue-600 font-semibold" title={t('retail_price')}>{t('retail_price')}: {formatCurrency(item.retail_price)}</span>
-                    <span className="text-green-700 font-bold" title={t('sell_price')}>{t('sell_price')}: {formatCurrency(item.price_per_unit)}</span>
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-center">
-                  <div className="flex flex-col items-center">
-                    <span className="text-brand-blue font-bold">{formatCurrency(totalPrice)}</span>
-                    <span className="text-[10px] text-green-600 font-semibold">{t('margin')}: {formatCurrency((item.quantity * item.price_per_unit) - totalPrice)}</span>
-                  </div>
-                </td>
+                {isAdmin && (
+                  <>
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex flex-col items-center text-xs">
+                        <span className="text-blue-600 font-semibold" title={t('retailPrice')}>{t('retailPrice')}: {formatCurrency(item.retailPrice)}</span>
+                        <span className="text-green-700 font-bold" title={t('sellPrice')}>{t('sellPrice')}: {formatCurrency(item.pricePerUnit)}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex flex-col items-center">
+                        <span className="text-brand-blue font-bold">{formatCurrency(totalPrice)}</span>
+                        {item.pricePerUnit !== undefined && item.retailPrice !== undefined && (
+                          <span className="text-[10px] text-green-600 font-semibold">{t('margin')}: {formatCurrency((item.quantity * item.pricePerUnit) - (totalPrice || 0))}</span>
+                        )}
+                      </div>
+                    </td>
+                  </>
+                )}
 
                 <td className="px-6 py-4 text-right">
                   {isEditing ? (
@@ -178,13 +215,15 @@ const StockList: React.FC<StockListProps> = ({ stocks, onUpdate }) => {
                       >
                         <Edit2 size={18} />
                       </button>
-                      <button
-                        onClick={() => handleDeleteItem(item.id, item.name)}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2"
-                        title="Delete Item"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      {isAdmin && (
+                        <button
+                          onClick={() => handleDeleteItem(item.id, item.name)}
+                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2"
+                          title="Delete Item"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      )}
                     </div>
                   )}
                 </td>

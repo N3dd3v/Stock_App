@@ -47,15 +47,30 @@ export class StockService {
   }
 
   /**
-   * Retrieves all stock items with producer details.
+   * Retrieves all stock items with producer details, optionally filtered by category.
    */
-  static async getAllStocks(): Promise<any[]> {
+  static async getAllStocks(category?: string): Promise<any[]> {
     const db = await getDb();
-    return db.all(`
+    const baseQuery = `
       SELECT s.*, p.name as producer_name, p.region as producer_region 
       FROM stocks s
       LEFT JOIN producers p ON s.producer_id = p.id
-    `);
+    `;
+    if (category) {
+      return db.all(baseQuery + ' WHERE s.category = ?', [category]);
+    }
+    return db.all(baseQuery);
+  }
+
+  /**
+   * Retrieves distinct categories from stocks.
+   */
+  static async getCategories(): Promise<string[]> {
+    const db = await getDb();
+    const rows = await db.all<{ category: string }>(
+      'SELECT DISTINCT category FROM stocks WHERE category IS NOT NULL ORDER BY category'
+    );
+    return rows.map(row => row.category);
   }
 
   /**
@@ -152,13 +167,37 @@ export class StockService {
   }
 
   /**
-   * Retrieves all items that are currently at or below their low-stock threshold.
+   * Updates a stock item's image URL
+   * @param id Stock item ID
+   * @param imageUrl Cloudinary secure URL
    */
-  static async getLowStockItems(): Promise<StockItem[]> {
+  static async updateStockImage(id: number, imageUrl: string | null): Promise<StockItem> {
     const db = await getDb();
-    return db.all<StockItem>(
-      'SELECT * FROM stocks WHERE quantity <= low_stock_threshold'
+    const result = await db.run(
+      'UPDATE stocks SET image_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [imageUrl, id]
     );
+    if (!result.changes) {
+      throw this.httpError('Stock item not found', 404);
+    }
+    const updatedItem = await this.getStockById(id);
+    if (!updatedItem) {
+      throw this.httpError('Stock item not found', 404);
+    }
+    return updatedItem;
+  }
+
+  /**
+   * Retrieves all items that are currently at or below their low-stock threshold, with producer details.
+   */
+  static async getLowStockItems(): Promise<any[]> {
+    const db = await getDb();
+    return db.all(`
+      SELECT s.*, p.name as producer_name, p.region as producer_region
+      FROM stocks s
+      LEFT JOIN producers p ON s.producer_id = p.id
+      WHERE s.quantity <= s.low_stock_threshold
+    `);
   }
 
   /**

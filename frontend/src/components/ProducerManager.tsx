@@ -3,9 +3,12 @@ import axios from 'axios';
 import { Factory, Plus, Trash2, MapPin, Phone, Mail } from 'lucide-react';
 import { Producer } from '../App';
 import { useLanguage } from '../LanguageContext';
+import { useAuth } from '../AuthContext';
 
 const ProducerManager: React.FC = () => {
   const { t } = useLanguage();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [producers, setProducers] = useState<Producer[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -65,15 +68,17 @@ const ProducerManager: React.FC = () => {
         <h2 className="text-2xl font-bold text-brand-blue flex items-center gap-2">
           <Factory /> {t('producer_management')}
         </h2>
-        <button 
-          onClick={() => setShowForm(!showForm)}
-          className="bg-brand-blue text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors"
-        >
-          <Plus size={20} /> {showForm ? t('cancel') : t('add_producer')}
-        </button>
+        {isAdmin && (
+          <button 
+            onClick={() => setShowForm(!showForm)}
+            className="bg-brand-blue text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors"
+          >
+            <Plus size={20} /> {showForm ? t('cancel') : t('add_producer')}
+          </button>
+        )}
       </div>
 
-      {showForm && (
+      {showForm && isAdmin && (
         <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-md border border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1">
             <label className="text-sm font-bold text-gray-700">{t('item_name')}</label>
@@ -104,12 +109,14 @@ const ProducerManager: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {(Array.isArray(producers) ? producers : []).map(p => (
           <div key={p.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow relative group">
-            <button 
-              onClick={() => handleDelete(p.id, p.name)}
-              className="absolute top-4 right-4 text-gray-300 hover:text-red-500 transition-colors"
-            >
-              <Trash2 size={18} />
-            </button>
+            {isAdmin && (
+              <button 
+                onClick={() => handleDelete(p.id, p.name)}
+                className="absolute top-4 right-4 text-gray-300 hover:text-red-500 transition-colors"
+              >
+                <Trash2 size={18} />
+              </button>
+            )}
             <h3 className="text-lg font-bold text-gray-900 mb-3 pr-8">{p.name}</h3>
             <div className="space-y-2 text-sm text-gray-600">
               <p className="flex items-center gap-2"><MapPin size={14} className="text-brand-blue" /> {p.region}</p>

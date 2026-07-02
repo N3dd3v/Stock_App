@@ -10,7 +10,32 @@
  */
 
 import { Router, Request, Response } from 'express';
+import multer from 'multer';
+import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
 import { StockService } from '../services/stockService.js';
+import { requireAuth, requireAdmin } from '../middleware/auth.js';
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// Configure Multer for memory storage
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  fileFilter: (req, file, cb) => {
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (allowedMimeTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only JPEG, PNG, and WebP files are allowed.'));
+    }
+  },
+});
 
 const router = Router();
 
@@ -35,14 +60,56 @@ const parsePositiveNumber = (value: unknown): number | null => {
   return n;
 };
 
+const stripPrices = (item: any) => {
+  const { price_per_unit, retail_price, ...rest } = item;
+  return rest;
+};
+
 /**
  * GET /api/stocks
- * Returns a list of all stock items.
+ * Returns a list of all stock items, optionally filtered by ?category=
  */
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', requireAuth, async (req: Request, res: Response) => {
   try {
-    const stocks = await StockService.getAllStocks();
-    res.json(stocks);
+    const category = req.query.category as string | undefined;
+    const stocks = await StockService.getAllStocks(category);
+    if (req.user?.role === 'staff') {
+      const strippedStocks = stocks.map(stripPrices);
+      res.json(strippedStocks);
+    } else {
+      res.json(stocks);
+    }
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/stocks/categories
+ * Returns distinct categories
+ */
+router.get('/categories', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const categories = await StockService.getCategories();
+    res.json(categories);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/stocks/alerts/low-stock
+ * Returns low stock items
+ */
+router.get('/alerts/low-stock', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const lowStockItems = await StockService.getLowStockItems();
+    if (req.user?.role === 'staff') {
+      const strippedItems = lowStockItems.map(stripPrices);
+      res.json(strippedItems);
+    } else {
+      res.json(lowStockItems);
+    }
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -51,9 +118,9 @@ router.get('/', async (req: Request, res: Response) => {
 /**
  * POST /api/stocks
  * Creates a new stock item.
- * Body: { name: string, quantity: number, designation_code?: string, ref_number?: string, price_per_unit?: number, retail_price?: number, producer_id?: number, description?: string, threshold?: number }
+ * Body: { name: string, quantity: number, designation_code?: string, ref_number?: string, price_per_unit?: number, retail_price?: number, producer_id?: number, description?: string, category?: string, threshold?: number }
  */
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const { name, quantity, designation_code, ref_number, price_per_unit, retail_price, producer_id, description, category, image_url, threshold } = req.body;
     if (!isNonEmptyString(name) || quantity === undefined) {
@@ -72,14 +139,58 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'producer_id must be a valid id' });
     }
     const id = await StockService.addStock(name, quantity, designation_code, ref_number, price_per_unit, retail_price, producer_id, description, category, image_url, threshold);
-    res.status(201).json({ id, name, quantity, designation_code, ref_number, price_per_unit, retail_price, producer_id, description, category, image_url, threshold });
+    const responseItem = req.user?.role === 'staff' 
+      ? stripPrices({ id, name, quantity, designation_code, ref_number, price_per_unit, retail_price, producer_id, description, category, image_url, threshold })
+      : { id, name, quantity, designation_code, ref_number, price_per_unit, retail_price, producer_id, description, category, image_url, threshold };
+    res.status(201).json(responseItem);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 });
 
+/**
+ * POST /api/stocks/:id/image
+ * Uploads an image for a stock item and updates image_url
+ * Admin only
+ */
+router.post(
+  '/:id/image',
+  requireAuth,
+  requireAdmin,
+  upload.single('image'),
+  async (req: Request, res: Response) => {
+    try {
+      const id = parsePositiveInt(req.params.id);
+      if (!id) {
+        return res.status(400).json({ error: 'Invalid stock id' });
+      }
+      if (!req.file) {
+        return res.status(400).json({ error: 'Image file is required' });
+      }
+
+      // Upload to Cloudinary
+      const uploadResult: UploadApiResponse = await new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {resource_type: 'image'},
+          (error, result) => {
+            if (error) return reject(error);
+            if (result) resolve(result);
+          }
+        );
+        uploadStream.end(req.file!.buffer);
+      });
+
+      const updatedStock = await StockService.updateStockImage(id, uploadResult.secure_url);
+      res.json({ image_url: updatedStock.image_url });
+    } catch (error: any) {
+      const status = error?.status ?? 500;
+      res.status(status).json({ error: error.message });
+    }
+  }
+);
+
 // Producer routes
-router.get('/producers', async (req: Request, res: Response) => {
+router.get('/producers', requireAuth, async (req: Request, res: Response) => {
   try {
     const producers = await StockService.getAllProducers();
     res.json(producers);
@@ -88,7 +199,7 @@ router.get('/producers', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/producers', async (req: Request, res: Response) => {
+router.post('/producers', requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const { name, phone_number, address, email, region } = req.body ?? {};
     if (!isNonEmptyString(name) || !isNonEmptyString(region)) {
@@ -112,7 +223,7 @@ router.post('/producers', async (req: Request, res: Response) => {
   }
 });
 
-router.patch('/producers/:id', async (req: Request, res: Response) => {
+router.patch('/producers/:id', requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const id = parsePositiveInt(req.params.id);
     if (!id) return res.status(400).json({ error: 'Invalid producer id' });
@@ -145,7 +256,7 @@ router.patch('/producers/:id', async (req: Request, res: Response) => {
   }
 });
 
-router.delete('/producers/:id', async (req: Request, res: Response) => {
+router.delete('/producers/:id', requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const id = parsePositiveInt(req.params.id);
     if (!id) return res.status(400).json({ error: 'Invalid producer id' });
@@ -162,12 +273,15 @@ router.delete('/producers/:id', async (req: Request, res: Response) => {
  * Updates the quantity of a specific item.
  * Body: { quantity: number }
  */
-router.patch('/:id/quantity', async (req: Request, res: Response) => {
+router.patch('/:id/quantity', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { quantity } = req.body;
     if (quantity === undefined) {
       return res.status(400).json({ error: 'Quantity is required' });
+    }
+    if (typeof quantity !== 'number' || !Number.isFinite(quantity) || quantity < 0) {
+      return res.status(400).json({ error: 'Quantity must be a valid number' });
     }
     await StockService.updateStockQuantity(Number(id), quantity);
     res.json({ message: 'Stock updated' });
@@ -181,10 +295,15 @@ router.patch('/:id/quantity', async (req: Request, res: Response) => {
  * GET /api/stocks/low-stock
  * Returns a list of items that are running low on stock.
  */
-router.get('/low-stock', async (req: Request, res: Response) => {
+router.get('/low-stock', requireAuth, async (req: Request, res: Response) => {
   try {
     const lowStockItems = await StockService.getLowStockItems();
-    res.json(lowStockItems);
+    if (req.user?.role === 'staff') {
+      const strippedItems = lowStockItems.map(stripPrices);
+      res.json(strippedItems);
+    } else {
+      res.json(lowStockItems);
+    }
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -194,7 +313,7 @@ router.get('/low-stock', async (req: Request, res: Response) => {
  * DELETE /api/stocks/:id
  * Deletes a specific stock item.
  */
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     await StockService.deleteStock(Number(id));

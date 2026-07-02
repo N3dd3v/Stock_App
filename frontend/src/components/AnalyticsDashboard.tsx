@@ -19,8 +19,25 @@ const AnalyticsDashboard: React.FC = () => {
           axios.get('/api/stocks'),
           axios.get('/api/stocks/producers')
         ]);
+        const transformStock = (item: any): StockItem => ({
+          id: item.id,
+          name: item.name,
+          designationCode: item.designation_code,
+          refNumber: item.ref_number,
+          quantity: item.quantity,
+          pricePerUnit: item.price_per_unit,
+          retailPrice: item.retail_price,
+          producerId: item.producer_id,
+          producerName: item.producer_name,
+          producerRegion: item.producer_region,
+          description: item.description,
+          category: item.category,
+          imageUrl: item.image_url,
+          lowStockThreshold: item.low_stock_threshold,
+          updatedAt: item.updated_at,
+        });
         setData({ 
-          stocks: Array.isArray(s.data) ? s.data : [], 
+          stocks: Array.isArray(s.data) ? s.data.map(transformStock) : [], 
           producers: Array.isArray(p.data) ? p.data : [] 
         });
       } catch (err) {
@@ -33,8 +50,8 @@ const AnalyticsDashboard: React.FC = () => {
   }, []);
 
   const safeStocks = Array.isArray(data.stocks) ? data.stocks : [];
-  const totalInventoryValue = safeStocks.reduce((acc, s) => acc + (s.quantity * s.retail_price), 0);
-  const totalPotentialRevenue = safeStocks.reduce((acc, s) => acc + (s.quantity * s.price_per_unit), 0);
+  const totalInventoryValue = safeStocks.reduce((acc, s) => acc + (s.quantity * (s.retailPrice ?? 0)), 0);
+  const totalPotentialRevenue = safeStocks.reduce((acc, s) => acc + (s.quantity * (s.pricePerUnit ?? 0)), 0);
   const totalPotentialProfit = totalPotentialRevenue - totalInventoryValue;
 
   const formatCurrency = (value: number) => {
@@ -76,7 +93,7 @@ const AnalyticsDashboard: React.FC = () => {
           </h3>
           <div className="space-y-4">
             {Array.isArray(data.producers) && data.producers.map(p => {
-              const producerStocks = safeStocks.filter(s => s.producer_id === p.id);
+              const producerStocks = safeStocks.filter(s => s.producerId === p.id);
               const count = producerStocks.length;
               const percentage = safeStocks.length > 0 ? (count / safeStocks.length) * 100 : 0;
               return (
