@@ -14,13 +14,11 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Package, AlertTriangle, Plus, RefreshCw, LayoutDashboard, 
-  Factory, User, ShoppingCart, BarChart3, Menu, X, Globe 
+  Factory, BarChart3, Menu, X, Globe 
 } from 'lucide-react';
 import StockList from './components/StockList';
 import StockForm from './components/StockForm';
 import ProducerManager from './components/ProducerManager';
-import ClientManager from './components/ClientManager';
-import OrderManager from './components/OrderManager';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import { useLanguage } from './LanguageContext';
 import { Language } from './translations';
@@ -38,6 +36,8 @@ export interface StockItem {
   producer_name?: string;
   producer_region?: string;
   description: string;
+  category: string;
+  image_url: string | null;
   low_stock_threshold: number;
   updated_at: string;
 }
@@ -51,31 +51,12 @@ export interface Producer {
   region: string;
 }
 
-export interface Client {
-  id: number;
-  name: string;
-  phone_number: string;
-  address: string;
-  email: string;
-}
-
-export interface Order {
-  id: number;
-  client_id: number;
-  client_name?: string;
-  location: string;
-  bill_price: number;
-  order_date: string;
-  shipment_date: string;
-  status: string;
-}
-
 const App: React.FC = () => {
   const { language, setLanguage, t } = useLanguage();
   const [stocks, setStocks] = useState<StockItem[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'stocks' | 'producers' | 'clients' | 'orders' | 'analytics'>('stocks');
+  const [activeTab, setActiveTab] = useState<'stocks' | 'producers' | 'analytics'>('stocks');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const fetchStocks = async () => {
@@ -131,8 +112,6 @@ const App: React.FC = () => {
         <nav className="flex-1 px-3 space-y-2">
           <NavItem id="stocks" label={t('inventory')} icon={Package} />
           <NavItem id="producers" label={t('producers')} icon={Factory} />
-          <NavItem id="clients" label={t('clients')} icon={User} />
-          <NavItem id="orders" label={t('orders')} icon={ShoppingCart} />
           <NavItem id="analytics" label={t('analytics')} icon={BarChart3} />
         </nav>
 
@@ -216,8 +195,6 @@ const App: React.FC = () => {
           )}
 
           {activeTab === 'producers' && <ProducerManager />}
-          {activeTab === 'clients' && <ClientManager />}
-          {activeTab === 'orders' && <OrderManager />}
           {activeTab === 'analytics' && <AnalyticsDashboard />}
         </main>
       </div>

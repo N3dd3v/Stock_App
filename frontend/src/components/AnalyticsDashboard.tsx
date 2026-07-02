@@ -1,33 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { BarChart3, TrendingUp, DollarSign, Package, User, Factory, PieChart } from 'lucide-react';
-import { StockItem, Order, Client, Producer } from '../App';
+import { BarChart3, TrendingUp, DollarSign, Package, Factory, PieChart } from 'lucide-react';
+import { StockItem, Producer } from '../App';
 import { useLanguage } from '../LanguageContext';
 
 const AnalyticsDashboard: React.FC = () => {
   const { t } = useLanguage();
   const [data, setData] = useState<{
     stocks: StockItem[],
-    orders: any[],
-    clients: Client[],
     producers: Producer[]
-  }>({ stocks: [], orders: [], clients: [], producers: [] });
+  }>({ stocks: [], producers: [] });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [s, o, c, p] = await Promise.all([
+        const [s, p] = await Promise.all([
           axios.get('/api/stocks'),
-          axios.get('/api/stocks/orders'),
-          axios.get('/api/stocks/clients'),
           axios.get('/api/stocks/producers')
         ]);
-        const nextStocks = Array.isArray(s.data) ? s.data : [];
-        const nextOrders = Array.isArray(o.data) ? o.data : [];
-        const nextClients = Array.isArray(c.data) ? c.data : [];
-        const nextProducers = Array.isArray(p.data) ? p.data : [];
-        setData({ stocks: nextStocks, orders: nextOrders, clients: nextClients, producers: nextProducers });
+        setData({ 
+          stocks: Array.isArray(s.data) ? s.data : [], 
+          producers: Array.isArray(p.data) ? p.data : [] 
+        });
       } catch (err) {
         console.error(err);
       } finally {
@@ -38,13 +33,8 @@ const AnalyticsDashboard: React.FC = () => {
   }, []);
 
   const safeStocks = Array.isArray(data.stocks) ? data.stocks : [];
-  const safeOrders = Array.isArray(data.orders) ? data.orders : [];
-  const safeClients = Array.isArray(data.clients) ? data.clients : [];
-  const safeProducers = Array.isArray(data.producers) ? data.producers : [];
-
   const totalInventoryValue = safeStocks.reduce((acc, s) => acc + (s.quantity * s.retail_price), 0);
   const totalPotentialRevenue = safeStocks.reduce((acc, s) => acc + (s.quantity * s.price_per_unit), 0);
-  const totalSalesRevenue = safeOrders.reduce((acc, o) => acc + o.bill_price, 0);
   const totalPotentialProfit = totalPotentialRevenue - totalInventoryValue;
 
   const formatCurrency = (value: number) => {
@@ -60,11 +50,11 @@ const AnalyticsDashboard: React.FC = () => {
       </h2>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-2">
           <div className="bg-blue-100 text-brand-blue p-2 rounded-lg w-fit"><DollarSign size={20} /></div>
-          <p className="text-sm text-gray-500 font-bold uppercase tracking-wider">{t('total_sales')}</p>
-          <p className="text-2xl font-black text-gray-900">{formatCurrency(totalSalesRevenue)}</p>
+          <p className="text-sm text-gray-500 font-bold uppercase tracking-wider">{t('stock_assets')}</p>
+          <p className="text-2xl font-black text-gray-900">{formatCurrency(totalInventoryValue)}</p>
         </div>
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-2">
           <div className="bg-green-100 text-green-600 p-2 rounded-lg w-fit"><TrendingUp size={20} /></div>
@@ -73,27 +63,22 @@ const AnalyticsDashboard: React.FC = () => {
         </div>
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-2">
           <div className="bg-yellow-100 text-brand-yellow p-2 rounded-lg w-fit"><Package size={20} /></div>
-          <p className="text-sm text-gray-500 font-bold uppercase tracking-wider">{t('stock_assets')}</p>
-          <p className="text-2xl font-black text-gray-900">{safeStocks.length} {t('total_items')}</p>
-        </div>
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-2">
-          <div className="bg-purple-100 text-purple-600 p-2 rounded-lg w-fit"><User size={20} /></div>
-          <p className="text-sm text-gray-500 font-bold uppercase tracking-wider">{t('active_clients')}</p>
-          <p className="text-2xl font-black text-gray-900">{safeClients.length}</p>
+          <p className="text-sm text-gray-500 font-bold uppercase tracking-wider">{t('total_items')}</p>
+          <p className="text-2xl font-black text-gray-900">{safeStocks.length}</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 gap-8">
         {/* Inventory Distribution */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
           <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
             <PieChart size={20} className="text-brand-blue" /> {t('inventory_distribution')}
           </h3>
           <div className="space-y-4">
-            {safeProducers.map(p => {
+            {Array.isArray(data.producers) && data.producers.map(p => {
               const producerStocks = safeStocks.filter(s => s.producer_id === p.id);
               const count = producerStocks.length;
-              const percentage = (count / safeStocks.length) * 100 || 0;
+              const percentage = safeStocks.length > 0 ? (count / safeStocks.length) * 100 : 0;
               return (
                 <div key={p.id} className="space-y-1">
                   <div className="flex justify-between text-sm">
@@ -102,35 +87,6 @@ const AnalyticsDashboard: React.FC = () => {
                   </div>
                   <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
                     <div className="bg-brand-blue h-full transition-all" style={{ width: `${percentage}%` }}></div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Top Clients */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
-            <TrendingUp size={20} className="text-green-600" /> {t('sales_by_client')}
-          </h3>
-          <div className="space-y-4">
-            {safeClients.map(c => {
-              const clientOrders = safeOrders.filter(o => o.client_id === c.id);
-              const total = clientOrders.reduce((acc, o) => acc + o.bill_price, 0);
-              const maxTotal = Math.max(
-                ...safeClients.map(cl => safeOrders.filter(o => o.client_id === cl.id).reduce((acc, o) => acc + o.bill_price, 0)),
-                1,
-              );
-              const barWidth = (total / maxTotal) * 100;
-              return (
-                <div key={c.id} className="space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-bold text-gray-700">{c.name}</span>
-                    <span className="text-brand-blue font-bold">{formatCurrency(total)}</span>
-                  </div>
-                  <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-                    <div className="bg-green-500 h-full transition-all" style={{ width: `${barWidth}%` }}></div>
                   </div>
                 </div>
               );

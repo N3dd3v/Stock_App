@@ -98,16 +98,6 @@ export async function getDb(): Promise<Db> {
   `);
 
   await db.exec(`
-    CREATE TABLE IF NOT EXISTS clients (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      phone_number TEXT,
-      address TEXT,
-      email TEXT
-    )
-  `);
-
-  await db.exec(`
     CREATE TABLE IF NOT EXISTS stocks (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -118,34 +108,11 @@ export async function getDb(): Promise<Db> {
       retail_price REAL DEFAULT 0,
       producer_id INTEGER,
       description TEXT,
+      category TEXT DEFAULT 'Uncategorised',
+      image_url TEXT,
       low_stock_threshold INTEGER DEFAULT 5,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (producer_id) REFERENCES producers(id)
-    )
-  `);
-
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS orders (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      client_id INTEGER,
-      location TEXT,
-      bill_price REAL,
-      order_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-      shipment_date DATETIME,
-      status TEXT DEFAULT 'Pending',
-      FOREIGN KEY (client_id) REFERENCES clients(id)
-    )
-  `);
-
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS order_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      order_id INTEGER,
-      stock_id INTEGER,
-      quantity INTEGER,
-      unit_price REAL,
-      FOREIGN KEY (order_id) REFERENCES orders(id),
-      FOREIGN KEY (stock_id) REFERENCES stocks(id)
     )
   `);
 
@@ -158,6 +125,12 @@ export async function getDb(): Promise<Db> {
   }
   if (!columnNames.includes('producer_id')) {
     await db.exec("ALTER TABLE stocks ADD COLUMN producer_id INTEGER REFERENCES producers(id)");
+  }
+  if (!columnNames.includes('category')) {
+    await db.exec("ALTER TABLE stocks ADD COLUMN category TEXT DEFAULT 'Uncategorised'");
+  }
+  if (!columnNames.includes('image_url')) {
+    await db.exec("ALTER TABLE stocks ADD COLUMN image_url TEXT");
   }
 
   return db;
