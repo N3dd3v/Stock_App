@@ -14,6 +14,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import stockRoutes from './routes/stockRoutes.js';
+import authRoutes from './routes/authRoutes.js';
 import { getDb } from './db.js';
 
 // Load environment variables from .env file
@@ -38,6 +39,7 @@ app.use(
 app.use(express.json()); // Parse JSON request bodies
 
 // Mount Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/stocks', stockRoutes);
 
 /**
