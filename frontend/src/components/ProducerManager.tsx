@@ -20,12 +20,21 @@ const ProducerManager: React.FC = () => {
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
 
+  const transformProducer = (p: any): Producer => ({
+    id: p.id,
+    name: p.name,
+    phoneNumber: p.phone_number,
+    address: p.address,
+    email: p.email,
+    region: p.region
+  });
+
   const fetchProducers = async () => {
     try {
       setLoading(true);
       const res = await axios.get('/api/stocks/producers');
       const nextProducers = Array.isArray(res.data) ? res.data : [];
-      setProducers(nextProducers);
+      setProducers(nextProducers.map(transformProducer));
     } catch (err) {
       console.error(err);
     } finally {
@@ -120,7 +129,7 @@ const ProducerManager: React.FC = () => {
             <h3 className="text-lg font-bold text-gray-900 mb-3 pr-8">{p.name}</h3>
             <div className="space-y-2 text-sm text-gray-600">
               <p className="flex items-center gap-2"><MapPin size={14} className="text-brand-blue" /> {p.region}</p>
-              <p className="flex items-center gap-2"><Phone size={14} className="text-brand-blue" /> {p.phone_number || 'N/A'}</p>
+              <p className="flex items-center gap-2"><Phone size={14} className="text-brand-blue" /> {p.phoneNumber || 'N/A'}</p>
               <p className="flex items-center gap-2"><Mail size={14} className="text-brand-blue" /> {p.email || 'N/A'}</p>
               <p className="text-xs text-gray-400 mt-2 italic">{p.address}</p>
             </div>

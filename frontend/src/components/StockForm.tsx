@@ -33,7 +33,7 @@ const StockForm: React.FC<StockFormProps> = ({ onStockAdded }) => {
   const [retailPrice, setRetailPrice] = useState<number>(0);
   const [producerId, setProducerId] = useState<number | ''>('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('Uncategorized');
+  const [category, setCategory] = useState('Uncategorised');
   const [threshold, setThreshold] = useState<number>(5);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -110,7 +110,7 @@ const StockForm: React.FC<StockFormProps> = ({ onStockAdded }) => {
       setRetailPrice(0);
       setProducerId('');
       setDescription('');
-      setCategory('Uncategorized');
+      setCategory('Uncategorised');
       setThreshold(5);
       setImageFile(null);
       setImagePreview(null);

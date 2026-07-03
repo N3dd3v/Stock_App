@@ -10,15 +10,13 @@
  * - src/routes/stockRoutes.ts: Mounts stock-related API endpoints.
  */
 
+// Must be first import to load .env before other imports access process.env
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import stockRoutes from './routes/stockRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import { getDb } from './db.js';
-
-// Load environment variables from .env file
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;

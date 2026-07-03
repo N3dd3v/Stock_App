@@ -100,7 +100,14 @@ export const translations = {
     no_producer: 'No Producer',
     noProducer: 'No Producer',
     no_producers: 'No producers registered yet.',
-    noProducers: 'No producers registered yet.'
+    noProducers: 'No producers registered yet.',
+    login: 'Login',
+    signIn: 'Sign In',
+    signingIn: 'Signing in...',
+    username: 'Username',
+    password: 'Password',
+    invalidCredentials: 'Invalid username or password',
+    logout: 'Log out'
   },
   fr: {
     inventory: 'Inventaire',
@@ -190,7 +197,14 @@ export const translations = {
     no_producer: 'Aucun Producteur',
     noProducer: 'Aucun Producteur',
     no_producers: 'Aucun producteur enregistré.',
-    noProducers: 'Aucun producteur enregistré.'
+    noProducers: 'Aucun producteur enregistré.',
+    login: 'Connexion',
+    signIn: 'Se connecter',
+    signingIn: 'Connexion...',
+    username: "Nom d'utilisateur",
+    password: 'Mot de passe',
+    invalidCredentials: "Nom d'utilisateur ou mot de passe incorrect",
+    logout: 'Déconnexion'
   },
   it: {
     inventory: 'Inventario',
@@ -280,7 +294,14 @@ export const translations = {
     no_producer: 'Nessun Produttore',
     noProducer: 'Nessun Produttore',
     no_producers: 'Nessun produttore registrato.',
-    noProducers: 'Nessun produttore registrato.'
+    noProducers: 'Nessun produttore registrato.',
+    login: 'Accesso',
+    signIn: 'Accedi',
+    signingIn: 'Accesso in corso...',
+    username: 'Nome utente',
+    password: 'Password',
+    invalidCredentials: 'Nome utente o password non validi',
+    logout: 'Esci'
   },
   es: {
     inventory: 'Inventario',
@@ -370,6 +391,13 @@ export const translations = {
     no_producer: 'Sin Productor',
     noProducer: 'Sin Productor',
     no_producers: 'No hay productores registrados todavía.',
-    noProducers: 'No hay productores registrados todavía.'
+    noProducers: 'No hay productores registrados todavía.',
+    login: 'Iniciar sesión',
+    signIn: 'Iniciar sesión',
+    signingIn: 'Iniciando sesión...',
+    username: 'Nombre de usuario',
+    password: 'Contraseña',
+    invalidCredentials: 'Nombre de usuario o contraseña incorrectos',
+    logout: 'Cerrar sesión'
   }
 };

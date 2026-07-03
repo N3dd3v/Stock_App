@@ -139,10 +139,8 @@ router.post('/', requireAuth, requireAdmin, async (req: Request, res: Response) 
       return res.status(400).json({ error: 'producer_id must be a valid id' });
     }
     const id = await StockService.addStock(name, quantity, designation_code, ref_number, price_per_unit, retail_price, producer_id, description, category, image_url, threshold);
-    const responseItem = req.user?.role === 'staff' 
-      ? stripPrices({ id, name, quantity, designation_code, ref_number, price_per_unit, retail_price, producer_id, description, category, image_url, threshold })
-      : { id, name, quantity, designation_code, ref_number, price_per_unit, retail_price, producer_id, description, category, image_url, threshold };
-    res.status(201).json(responseItem);
+    // Route is admin-only, no need to strip prices
+    res.status(201).json({ id, name, quantity, designation_code, ref_number, price_per_unit, retail_price, producer_id, description, category, image_url, threshold });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -266,6 +264,7 @@ router.delete('/producers/:id', requireAuth, requireAdmin, async (req: Request, 
     const status = error?.status ?? 500;
     res.status(status).json({ error: error.message });
   }
+
 });
 
 /**
@@ -288,24 +287,6 @@ router.patch('/:id/quantity', requireAuth, async (req: Request, res: Response) =
   } catch (error: any) {
     const status = error?.status ?? 500;
     res.status(status).json({ error: error.message });
-  }
-});
-
-/**
- * GET /api/stocks/low-stock
- * Returns a list of items that are running low on stock.
- */
-router.get('/low-stock', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const lowStockItems = await StockService.getLowStockItems();
-    if (req.user?.role === 'staff') {
-      const strippedItems = lowStockItems.map(stripPrices);
-      res.json(strippedItems);
-    } else {
-      res.json(lowStockItems);
-    }
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
   }
 });
 

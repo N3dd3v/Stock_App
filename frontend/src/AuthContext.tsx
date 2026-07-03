@@ -14,13 +14,26 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const isTokenValid = (token: string): boolean => {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.exp * 1000 > Date.now();
+  } catch {
+    return false;
+  }
+};
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => {
     const savedUser = localStorage.getItem('stock_app_user');
     const savedToken = localStorage.getItem('stock_app_token');
-    if (savedUser && savedToken) {
+    
+    if (savedUser && savedToken && isTokenValid(savedToken)) {
       return JSON.parse(savedUser);
     }
+    
+    localStorage.removeItem('stock_app_token');
+    localStorage.removeItem('stock_app_user');
     return null;
   });
 

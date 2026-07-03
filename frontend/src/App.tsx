@@ -14,12 +14,13 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Package, AlertTriangle, Plus, RefreshCw, LayoutDashboard, 
-  Factory, BarChart3, Menu, X, Globe, Bell 
+  Factory, BarChart3, Menu, X, Globe, Bell, LogOut
 } from 'lucide-react';
 import StockList from './components/StockList';
 import StockForm from './components/StockForm';
 import ProducerManager from './components/ProducerManager';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
+import LoginPage from './components/LoginPage';
 import { useLanguage } from './LanguageContext';
 import { useAuth } from './AuthContext';
 import { Language } from './translations';
@@ -53,7 +54,7 @@ export interface Producer {
 
 const App: React.FC = () => {
   const { language, setLanguage, t } = useLanguage();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [stocks, setStocks] = useState<StockItem[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -154,6 +155,10 @@ const App: React.FC = () => {
     { code: 'es', label: 'Español' },
   ];
 
+  if (!user) {
+    return <LoginPage />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
@@ -168,6 +173,35 @@ const App: React.FC = () => {
           <NavItem id="producers" label={t('producers')} icon={Factory} />
           {isAdmin && <NavItem id="analytics" label={t('analytics')} icon={BarChart3} />}
         </nav>
+
+        {/* Footer */}
+        <div className="border-t border-white/10 pt-4 pb-2">
+          {isSidebarOpen ? (
+            <div className="px-4 pb-3 flex items-center justify-between">
+              <div className="min-w-0">
+                <p className="text-white font-bold truncate">{user.username}</p>
+                <p className="text-white/50 text-xs uppercase tracking-wider">{user.role}</p>
+              </div>
+              <button
+                onClick={logout}
+                title={t('logout')}
+                className="p-2 text-white/50 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <LogOut size={20} />
+              </button>
+            </div>
+          ) : (
+            <div className="flex justify-center pb-3">
+              <button
+                onClick={logout}
+                title={t('logout')}
+                className="p-2 text-white/50 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <LogOut size={20} />
+              </button>
+            </div>
+          )}
+        </div>
 
         <button 
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
