@@ -118,15 +118,17 @@ const App: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    fetchStocks();
-    fetchCategories();
-    fetchLowStock();
-    const interval = setInterval(() => {
-      fetchLowStock();
-    }, 60000);
-    return () => clearInterval(interval);
-  }, [selectedCategory]);
+  useEffect(() => { 
+    if (!user) return; // logged out: LoginPage is showing, fetch nothing 
+ 
+    fetchStocks(); 
+    fetchCategories(); 
+    fetchLowStock(); 
+    const interval = setInterval(() => { 
+      fetchLowStock(); 
+    }, 60000); 
+    return () => clearInterval(interval); 
+  }, [selectedCategory, user]);
 
   const safeStocks = Array.isArray(stocks) ? stocks : [];
   const lowStockCount = safeStocks.filter(item => item.quantity <= item.lowStockThreshold).length;

@@ -25,11 +25,16 @@ axios.interceptors.request.use(
 axios.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 && !error.config?.url?.includes('/api/auth/login')) {
-      localStorage.removeItem('stock_app_token')
-      localStorage.removeItem('stock_app_user')
-      window.location.reload()
-    }
+    const status = error?.response?.status 
+    const url: string = error?.config?.url ?? '' 
+    if (status === 401 && !url.includes('/api/auth/login')) { 
+      const hadSession = localStorage.getItem('stock_app_token') !== null 
+      localStorage.removeItem('stock_app_token') 
+      localStorage.removeItem('stock_app_user') 
+      if (hadSession) { 
+        window.location.reload() // genuine expired/invalid session 
+      } 
+    } 
     return Promise.reject(error)
   }
 )
