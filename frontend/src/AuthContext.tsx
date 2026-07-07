@@ -1,18 +1,18 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
-interface User {
+export interface User {
   id: number;
   username: string;
   role: 'admin' | 'staff';
 }
 
-interface AuthContextType {
+export interface AuthContextType {
   user: User | null;
   login: (token: string, user: User) => void;
   logout: () => void;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const isTokenValid = (token: string): boolean => {
   try {

@@ -24,6 +24,8 @@ export interface Db {
 let client: Client | null = null;
 let db: Db | null = null;
 
+const isLocalLibsqlUrl = (url: string) => url === ':memory:' || url.startsWith('file:');
+
 const toNumber = (value: unknown): number | undefined => {
   if (typeof value === 'number') return value;
   if (typeof value === 'bigint') return Number(value);
@@ -78,12 +80,13 @@ export async function getDb(): Promise<Db> {
 
   const url = process.env.TURSO_DATABASE_URL;
   const authToken = process.env.TURSO_AUTH_TOKEN;
+  const isLocalUrl = typeof url === 'string' && isLocalLibsqlUrl(url);
 
-  if (!url || !authToken) {
+  if (!url || (!isLocalUrl && !authToken)) {
     throw new Error('Missing TURSO_DATABASE_URL or TURSO_AUTH_TOKEN environment variables');
   }
 
-  client = createClient({ url, authToken });
+  client = isLocalUrl ? createClient({ url }) : createClient({ url, authToken });
   db = createDbWrapper(client);
 
   await db.exec(`
@@ -143,4 +146,12 @@ export async function getDb(): Promise<Db> {
   }
 
   return db;
+}
+
+export async function resetDbForTests(): Promise<void> {
+  if (client) {
+    await Promise.resolve((client as any).close?.());
+  }
+  client = null;
+  db = null;
 }

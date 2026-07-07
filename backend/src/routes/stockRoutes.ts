@@ -60,7 +60,7 @@ const parsePositiveNumber = (value: unknown): number | null => {
   return n;
 };
 
-const stripPrices = (item: any) => {
+export const stripPrices = (item: any) => {
   const { price_per_unit, retail_price, ...rest } = item;
   return rest;
 };

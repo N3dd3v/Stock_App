@@ -12,33 +12,11 @@
 
 // Must be first import to load .env before other imports access process.env
 import 'dotenv/config';
-import express from 'express';
-import cors from 'cors';
-import stockRoutes from './routes/stockRoutes.js';
-import authRoutes from './routes/authRoutes.js';
+import { createApp } from './app.js';
 import { getDb } from './db.js';
 
-const app = express();
+const app = createApp();
 const PORT = process.env.PORT || 3000;
-
-// Middleware
-const allowedOrigins = ['https://stockappdemo.netlify.app', 'http://localhost:5173'];
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-        return;
-      }
-      callback(new Error('Not allowed by CORS'));
-    },
-  }),
-);
-app.use(express.json()); // Parse JSON request bodies
-
-// Mount Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/stocks', stockRoutes);
 
 /**
  * Starts the application server.
