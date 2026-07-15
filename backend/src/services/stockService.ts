@@ -39,6 +39,25 @@ export interface Producer {
   region: string;
 }
 
+export interface StockWithProducer extends StockItem {
+  producer_name: string | null;
+  producer_region: string | null;
+}
+
+export interface StockUpdateInput {
+  name?: string;
+  designation_code?: string;
+  ref_number?: string;
+  quantity?: number;
+  price_per_unit?: number;
+  retail_price?: number;
+  producer_id?: number | null;
+  description?: string;
+  category?: string;
+  image_url?: string | null;
+  low_stock_threshold?: number;
+}
+
 export class StockService {
   private static httpError(message: string, status: number) {
     const err: any = new Error(message);
@@ -60,6 +79,17 @@ export class StockService {
       return db.all(baseQuery + ' WHERE s.category = ?', [category]);
     }
     return db.all(baseQuery);
+  }
+
+  static async getStockWithProducerById(id: number): Promise<StockWithProducer | undefined> {
+    const db = await getDb();
+    return db.get<StockWithProducer>(
+      `SELECT s.*, p.name as producer_name, p.region as producer_region
+       FROM stocks s
+       LEFT JOIN producers p ON s.producer_id = p.id
+       WHERE s.id = ?`,
+      [id]
+    );
   }
 
   /**
@@ -117,20 +147,48 @@ export class StockService {
 
   static async getAllProducers(): Promise<Producer[]> {
     const db = await getDb();
-    return db.all('SELECT * FROM producers');
+    return db.all('SELECT * FROM producers ORDER BY name');
   }
 
-  static async updateProducer(id: number, p: Partial<Producer>): Promise<void> {
+  static async getProducerById(id: number): Promise<Producer | undefined> {
     const db = await getDb();
-    await db.run(
+    return db.get<Producer>('SELECT * FROM producers WHERE id = ?', [id]);
+  }
+
+  static async updateProducer(id: number, p: Partial<Producer>): Promise<Producer> {
+    const db = await getDb();
+    const result = await db.run(
       'UPDATE producers SET name = COALESCE(?, name), phone_number = COALESCE(?, phone_number), address = COALESCE(?, address), email = COALESCE(?, email), region = COALESCE(?, region) WHERE id = ?',
       [p.name, p.phone_number, p.address, p.email, p.region, id]
     );
+
+    if (!result.changes) {
+      throw this.httpError('Producer not found', 404);
+    }
+
+    const updatedProducer = await this.getProducerById(id);
+    if (!updatedProducer) {
+      throw this.httpError('Producer not found', 404);
+    }
+
+    return updatedProducer;
   }
 
   static async deleteProducer(id: number): Promise<void> {
     const db = await getDb();
-    await db.run('DELETE FROM producers WHERE id = ?', [id]);
+    const referencingStock = await db.get<{ count: number }>(
+      'SELECT COUNT(*) as count FROM stocks WHERE producer_id = ?',
+      [id]
+    );
+
+    if ((referencingStock?.count ?? 0) > 0) {
+      throw this.httpError('Producer is referenced by existing products', 409);
+    }
+
+    const result = await db.run('DELETE FROM producers WHERE id = ?', [id]);
+    if (!result.changes) {
+      throw this.httpError('Producer not found', 404);
+    }
   }
 
   /**
@@ -152,6 +210,36 @@ export class StockService {
     if (item && item.quantity <= item.low_stock_threshold) {
       this.sendLowStockAlert(item);
     }
+  }
+
+  static async updateStock(id: number, updates: StockUpdateInput): Promise<StockWithProducer> {
+    const db = await getDb();
+    const entries = Object.entries(updates).filter(([, value]) => value !== undefined);
+
+    if (entries.length === 0) {
+      throw this.httpError('No fields to update', 400);
+    }
+
+    const setClause = entries.map(([key]) => `${key} = ?`).join(', ');
+    const result = await db.run(
+      `UPDATE stocks SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      [...entries.map(([, value]) => value), id]
+    );
+
+    if (!result.changes) {
+      throw this.httpError('Stock item not found', 404);
+    }
+
+    const updatedItem = await this.getStockWithProducerById(id);
+    if (!updatedItem) {
+      throw this.httpError('Stock item not found', 404);
+    }
+
+    if (updatedItem.quantity <= updatedItem.low_stock_threshold) {
+      this.sendLowStockAlert(updatedItem);
+    }
+
+    return updatedItem;
   }
 
   /**

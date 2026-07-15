@@ -12,7 +12,7 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
-import { StockService } from '../services/stockService.js';
+import { StockService, type StockUpdateInput, type StockWithProducer } from '../services/stockService.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 
 // Configure Cloudinary
@@ -60,10 +60,164 @@ const parsePositiveNumber = (value: unknown): number | null => {
   return n;
 };
 
+const isNullableOptionalString = (value: unknown): value is string | null | undefined =>
+  value === undefined || value === null || typeof value === 'string';
+
+const toStockResponse = (item: StockWithProducer) => ({
+  id: item.id,
+  name: item.name,
+  designationCode: item.designation_code,
+  refNumber: item.ref_number,
+  quantity: item.quantity,
+  pricePerUnit: item.price_per_unit,
+  retailPrice: item.retail_price,
+  producerId: item.producer_id,
+  producerName: item.producer_name,
+  producerRegion: item.producer_region,
+  description: item.description,
+  category: item.category,
+  imageUrl: item.image_url,
+  lowStockThreshold: item.low_stock_threshold,
+  updatedAt: item.updated_at,
+});
+
+const validateQuantityOnlyUpdate = (body: unknown): { quantity: number } | { error: string; status: number } => {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return { error: 'Invalid update payload', status: 400 };
+  }
+
+  const keys = Object.keys(body as Record<string, unknown>);
+  if (keys.length === 0) {
+    return { error: 'Quantity is required', status: 400 };
+  }
+
+  // Staff updates reject any field other than quantity so RBAC is enforced server-side.
+  if (keys.some((key) => key !== 'quantity')) {
+    return { error: 'Forbidden', status: 403 };
+  }
+
+  const { quantity } = body as { quantity?: unknown };
+  if (quantity === undefined) {
+    return { error: 'Quantity is required', status: 400 };
+  }
+  if (typeof quantity !== 'number' || !Number.isFinite(quantity) || quantity < 0) {
+    return { error: 'Quantity must be a valid number', status: 400 };
+  }
+
+  return { quantity };
+};
+
+const validateAdminStockUpdate = (body: unknown): StockUpdateInput | { error: string; status: number } => {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return { error: 'Invalid update payload', status: 400 };
+  }
+
+  const payload = body as Record<string, unknown>;
+  const allowedKeys = new Set([
+    'name',
+    'designation_code',
+    'ref_number',
+    'quantity',
+    'price_per_unit',
+    'retail_price',
+    'producer_id',
+    'description',
+    'category',
+    'image_url',
+    'threshold',
+    'low_stock_threshold',
+  ]);
+  const submittedKeys = Object.keys(payload);
+
+  if (submittedKeys.length === 0) {
+    return { error: 'No fields to update', status: 400 };
+  }
+
+  if (submittedKeys.some((key) => !allowedKeys.has(key))) {
+    return { error: 'Invalid update fields', status: 400 };
+  }
+
+  if (payload.name !== undefined && !isNonEmptyString(payload.name)) {
+    return { error: 'name must be a non-empty string', status: 400 };
+  }
+
+  if (
+    !isOptionalString(payload.designation_code) ||
+    !isOptionalString(payload.ref_number) ||
+    !isOptionalString(payload.description) ||
+    !isOptionalString(payload.category) ||
+    !isNullableOptionalString(payload.image_url)
+  ) {
+    return { error: 'Invalid text fields', status: 400 };
+  }
+
+  if (
+    (payload.quantity !== undefined &&
+      (typeof payload.quantity !== 'number' || !Number.isFinite(payload.quantity) || payload.quantity < 0)) ||
+    (payload.price_per_unit !== undefined &&
+      (typeof payload.price_per_unit !== 'number' || !Number.isFinite(payload.price_per_unit) || payload.price_per_unit < 0)) ||
+    (payload.retail_price !== undefined &&
+      (typeof payload.retail_price !== 'number' || !Number.isFinite(payload.retail_price) || payload.retail_price < 0))
+  ) {
+    return { error: 'Quantity and prices must be valid non-negative numbers', status: 400 };
+  }
+
+  const lowStockThreshold = payload.low_stock_threshold ?? payload.threshold;
+  if (
+    lowStockThreshold !== undefined &&
+    (typeof lowStockThreshold !== 'number' || !Number.isFinite(lowStockThreshold) || lowStockThreshold < 0)
+  ) {
+    return { error: 'low_stock_threshold must be a valid non-negative number', status: 400 };
+  }
+
+  if (
+    payload.producer_id !== undefined &&
+    payload.producer_id !== null &&
+    parsePositiveInt(payload.producer_id) === null
+  ) {
+    return { error: 'producer_id must be a valid id', status: 400 };
+  }
+
+  return {
+    name: payload.name as string | undefined,
+    designation_code: payload.designation_code as string | undefined,
+    ref_number: payload.ref_number as string | undefined,
+    quantity: payload.quantity as number | undefined,
+    price_per_unit: payload.price_per_unit as number | undefined,
+    retail_price: payload.retail_price as number | undefined,
+    producer_id:
+      payload.producer_id === undefined
+        ? undefined
+        : payload.producer_id === null
+          ? null
+          : parsePositiveInt(payload.producer_id),
+    description: payload.description as string | undefined,
+    category: payload.category as string | undefined,
+    image_url: payload.image_url as string | null | undefined,
+    low_stock_threshold: lowStockThreshold as number | undefined,
+  };
+};
+
 const stripPrices = (item: any) => {
   const { price_per_unit, retail_price, ...rest } = item;
   return rest;
 };
+
+const toProducerResponse = (producer: {
+  id: number;
+  name: string;
+  phone_number: string;
+  address: string;
+  email: string;
+  region: string;
+}) => ({
+  id: producer.id,
+  name: producer.name,
+  phone_number: producer.phone_number,
+  address: producer.address,
+  email: producer.email,
+  region: producer.region,
+});
 
 /**
  * GET /api/stocks
@@ -187,11 +341,12 @@ router.post(
   }
 );
 
-// Producer routes
+// Supplier routes use the existing "producers" model in this codebase.
+// Staff may read the list because producer details are already visible in staff-facing stock views.
 router.get('/producers', requireAuth, async (req: Request, res: Response) => {
   try {
     const producers = await StockService.getAllProducers();
-    res.json(producers);
+    res.json(producers.map(toProducerResponse));
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -214,7 +369,7 @@ router.post('/producers', requireAuth, requireAdmin, async (req: Request, res: R
       region
     };
     const id = await StockService.addProducer(payload);
-    res.status(201).json({ id, ...payload });
+    res.status(201).json(toProducerResponse({ id, ...payload }));
   } catch (error: any) {
     const status = error?.status ?? 500;
     res.status(status).json({ error: error.message });
@@ -246,8 +401,8 @@ router.patch('/producers/:id', requireAuth, requireAdmin, async (req: Request, r
       return res.status(400).json({ error: 'Invalid producer fields' });
     }
 
-    await StockService.updateProducer(id, { name, phone_number, address, email, region });
-    res.json({ message: 'Producer updated' });
+    const updatedProducer = await StockService.updateProducer(id, { name, phone_number, address, email, region });
+    res.json(toProducerResponse(updatedProducer));
   } catch (error: any) {
     const status = error?.status ?? 500;
     res.status(status).json({ error: error.message });
@@ -268,21 +423,63 @@ router.delete('/producers/:id', requireAuth, requireAdmin, async (req: Request, 
 });
 
 /**
+ * PATCH /api/stocks/:id
+ * Admins can update any editable stock field.
+ * Staff users are restricted to quantity-only updates and receive 403 if they submit any other fields.
+ */
+router.patch('/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const id = parsePositiveInt(req.params.id);
+    if (!id) {
+      return res.status(400).json({ error: 'Invalid stock id' });
+    }
+
+    if (req.user?.role === 'staff') {
+      const validated = validateQuantityOnlyUpdate(req.body);
+      if ('error' in validated) {
+        return res.status(validated.status).json({ error: validated.error });
+      }
+
+      await StockService.updateStockQuantity(id, validated.quantity);
+      const updatedStock = await StockService.getStockWithProducerById(id);
+      if (!updatedStock) {
+        return res.status(404).json({ error: 'Stock item not found' });
+      }
+
+      return res.json(toStockResponse(updatedStock));
+    }
+
+    const validated = validateAdminStockUpdate(req.body);
+    if ('error' in validated) {
+      return res.status(validated.status).json({ error: validated.error });
+    }
+
+    const updatedStock = await StockService.updateStock(id, validated);
+    return res.json(toStockResponse(updatedStock));
+  } catch (error: any) {
+    const status = error?.status ?? 500;
+    res.status(status).json({ error: error.message });
+  }
+});
+
+/**
  * PATCH /api/stocks/:id/quantity
  * Updates the quantity of a specific item.
  * Body: { quantity: number }
  */
 router.patch('/:id/quantity', requireAuth, async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const { quantity } = req.body;
-    if (quantity === undefined) {
-      return res.status(400).json({ error: 'Quantity is required' });
+    const id = parsePositiveInt(req.params.id);
+    if (!id) {
+      return res.status(400).json({ error: 'Invalid stock id' });
     }
-    if (typeof quantity !== 'number' || !Number.isFinite(quantity) || quantity < 0) {
-      return res.status(400).json({ error: 'Quantity must be a valid number' });
+
+    const validated = validateQuantityOnlyUpdate(req.body);
+    if ('error' in validated) {
+      return res.status(validated.status).json({ error: validated.error });
     }
-    await StockService.updateStockQuantity(Number(id), quantity);
+
+    await StockService.updateStockQuantity(id, validated.quantity);
     res.json({ message: 'Stock updated' });
   } catch (error: any) {
     const status = error?.status ?? 500;

@@ -14,7 +14,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Package, AlertTriangle, Plus, RefreshCw, LayoutDashboard, 
-  Factory, BarChart3, Menu, X, Globe, Bell, LogOut
+  Factory, BarChart3, Menu, X, Globe, Bell, LogOut, List, LayoutGrid
 } from 'lucide-react';
 import StockList from './components/StockList';
 import StockForm from './components/StockForm';
@@ -53,6 +53,7 @@ export interface Producer {
 }
 
 const App: React.FC = () => {
+  const INVENTORY_VIEW_KEY = 'stock_app_inventory_view';
   const { language, setLanguage, t } = useLanguage();
   const { user, logout } = useAuth();
   const [stocks, setStocks] = useState<StockItem[]>([]);
@@ -65,6 +66,10 @@ const App: React.FC = () => {
   const [categories, setCategories] = useState<string[]>([]);
   const [lowStockItems, setLowStockItems] = useState<any[]>([]);
   const [showAlerts, setShowAlerts] = useState(false);
+  const [inventoryView, setInventoryView] = useState<'list' | 'grid'>(() => {
+    const savedView = localStorage.getItem(INVENTORY_VIEW_KEY);
+    return savedView === 'grid' ? 'grid' : 'list';
+  });
 
   const transformStock = (item: any): StockItem => ({
     id: item.id,
@@ -130,6 +135,16 @@ const App: React.FC = () => {
     return () => clearInterval(interval); 
   }, [selectedCategory, user]);
 
+  useEffect(() => {
+    if (!isAdmin && (activeTab === 'producers' || activeTab === 'analytics')) {
+      setActiveTab('stocks');
+    }
+  }, [activeTab, isAdmin]);
+
+  useEffect(() => {
+    localStorage.setItem(INVENTORY_VIEW_KEY, inventoryView);
+  }, [inventoryView]);
+
   const safeStocks = Array.isArray(stocks) ? stocks : [];
   const lowStockCount = safeStocks.filter(item => item.quantity <= item.lowStockThreshold).length;
 
@@ -172,7 +187,7 @@ const App: React.FC = () => {
 
         <nav className="flex-1 px-3 space-y-2">
           <NavItem id="stocks" label={t('inventory')} icon={Package} />
-          <NavItem id="producers" label={t('producers')} icon={Factory} />
+          <NavItem id="producers" label={t('producers')} icon={Factory} visible={isAdmin} />
           {isAdmin && <NavItem id="analytics" label={t('analytics')} icon={BarChart3} />}
         </nav>
 
@@ -321,6 +336,33 @@ const App: React.FC = () => {
                       <option key={category} value={category}>{category}</option>
                     ))}
                   </select>
+                  <div className="ml-auto flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-1">
+                    <span className="px-2 text-xs font-bold uppercase tracking-wide text-gray-500">{t('viewMode')}</span>
+                    <button
+                      type="button"
+                      onClick={() => setInventoryView('list')}
+                      className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-bold transition-colors ${
+                        inventoryView === 'list'
+                          ? 'bg-white text-brand-blue shadow-sm'
+                          : 'text-gray-500 hover:bg-white hover:text-brand-blue'
+                      }`}
+                    >
+                      <List size={16} />
+                      {t('listView')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setInventoryView('grid')}
+                      className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-bold transition-colors ${
+                        inventoryView === 'grid'
+                          ? 'bg-white text-brand-blue shadow-sm'
+                          : 'text-gray-500 hover:bg-white hover:text-brand-blue'
+                      }`}
+                    >
+                      <LayoutGrid size={16} />
+                      {t('gridView')}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -333,12 +375,16 @@ const App: React.FC = () => {
                     <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
                   </button>
                 </div>
-                    <StockList stocks={safeStocks} onUpdate={() => { fetchStocks(); fetchLowStock(); }} />
+                    <StockList
+                      stocks={safeStocks}
+                      viewMode={inventoryView}
+                      onUpdate={() => { fetchStocks(); fetchLowStock(); }}
+                    />
               </div>
             </div>
           )}
 
-          {activeTab === 'producers' && <ProducerManager />}
+          {isAdmin && activeTab === 'producers' && <ProducerManager />}
           {isAdmin && activeTab === 'analytics' && <AnalyticsDashboard />}
         </main>
       </div>
